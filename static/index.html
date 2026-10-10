@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Vertical Clipper</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f2f3f6; --panel:#ffffff; --panel-2:#f6f7f9; --line:#e1e4ea; --line-2:#cdd1da;
+  --ink:#14171f; --mut:#5a6272; --ac:#0b7f74; --ac-ink:#ffffff; --ac-soft:#d9f0ec;
+  --play:#e5484d; --err:#b92d33; --ok:#0b7f74; --stage:#0b0c0f;
+  --sans:"Geist",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --vh:clamp(220px,48vh,520px);
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#0e1013; --panel:#16191f; --panel-2:#1d2128; --line:#272c35; --line-2:#363c48;
+    --ink:#e8eaef; --mut:#98a0ae; --ac:#34c7b3; --ac-ink:#06201c; --ac-soft:#173a36;
+    --play:#ff6369; --err:#ff8085; --ok:#34c7b3;
+  }
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+[hidden]{display:none!important}
+button,input{font:inherit;color:inherit}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+svg{display:block;flex:none}
+:is(button,input,[tabindex],video,label.drop):focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+
+/* ───────── buttons ───────── */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;
+  border:1px solid var(--line-2);background:var(--panel);border-radius:8px;font-weight:500;cursor:pointer;white-space:nowrap;
+  transition:background .12s,border-color .12s;
+}
+.btn:hover:not(:disabled){background:var(--panel-2);border-color:var(--mut)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.primary{background:var(--ac);border-color:var(--ac);color:var(--ac-ink);font-weight:600}
+.btn.primary:hover:not(:disabled){background:var(--ac);filter:brightness(1.08)}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.ghost:hover:not(:disabled){background:var(--panel-2);border-color:transparent}
+.btn.danger{color:var(--err)}
+.btn.sm{height:30px;padding:0 10px;font-size:13px;border-radius:7px}
+.btn.icon{width:36px;padding:0}
+.btn.sm.icon{width:30px}
+
+/* ───────── app bar ───────── */
+.app{min-height:100%}
+.top{
+  height:56px;display:flex;align-items:center;gap:12px;padding:0 16px;
+  background:var(--panel);border-bottom:1px solid var(--line);
+}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;letter-spacing:-.01em}
+.brand svg{color:var(--ac)}
+.src{
+  display:flex;align-items:center;gap:8px;min-width:0;max-width:44ch;margin-left:8px;padding:5px 10px;
+  background:var(--panel-2);border:1px solid var(--line);border-radius:8px;color:var(--mut);font-size:13px;
+}
+.src span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.src .mono{color:var(--ink)}
+.top .grow{flex:1}
+
+/* ───────── home ───────── */
+.home{max-width:780px;margin:0 auto;padding:64px 24px 80px}
+.home h1{font:600 38px/1.12 var(--sans);letter-spacing:-.03em;margin:0 0 12px;max-width:18ch}
+.home .sub{color:var(--mut);font-size:16px;margin:0 0 32px;max-width:56ch}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px}
+.seg-ctl{display:inline-flex;padding:3px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;margin-bottom:18px}
+.seg-ctl button{
+  border:0;background:transparent;border-radius:7px;height:30px;padding:0 14px;font-weight:500;color:var(--mut);cursor:pointer;
+}
+.seg-ctl button[aria-selected=true]{background:var(--panel);color:var(--ink);box-shadow:0 0 0 1px var(--line-2)}
+.field{display:flex;gap:8px}
+.input{
+  flex:1;min-width:0;height:40px;padding:0 12px;background:var(--panel);border:1px solid var(--line-2);border-radius:8px;
+}
+.input::placeholder{color:var(--mut)}
+.input:focus{outline:2px solid var(--ac);outline-offset:-1px;border-color:var(--ac)}
+.field .btn{height:40px}
+.drop{
+  position:relative;display:flex;align-items:center;gap:14px;padding:18px;border:1.5px dashed var(--line-2);
+  border-radius:10px;background:var(--panel-2);cursor:pointer;transition:border-color .12s,background .12s;
+}
+.drop:hover,.drop.over{border-color:var(--ac);background:var(--ac-soft)}
+.drop input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.drop .ic{width:40px;height:40px;border-radius:10px;background:var(--panel);border:1px solid var(--line);display:grid;place-items:center;color:var(--ac)}
+.drop b{display:block;font-weight:600}
+.drop small{color:var(--mut);font-size:13px}
+.formrow{display:flex;gap:8px;margin-top:14px;justify-content:flex-end}
+.alert{
+  display:flex;gap:10px;align-items:flex-start;margin-bottom:16px;padding:10px 12px;border-radius:8px;
+  border:1px solid var(--err);color:var(--err);background:transparent;font-weight:500;
+}
+.how{list-style:none;margin:36px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.how li{border-top:1px solid var(--line-2);padding-top:12px}
+.how b{display:block;font-weight:600;margin-bottom:2px}
+.how span{color:var(--mut);font-size:13px}
+.how .n{font:500 12px var(--mono);color:var(--ac);display:block;margin-bottom:6px}
+
+.working{text-align:center;padding:44px 24px}
+.spin{width:28px;height:28px;border-radius:50%;border:3px solid var(--line-2);border-top-color:var(--ac);margin:0 auto 18px;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.working h2{font:600 20px/1.3 var(--sans);letter-spacing:-.01em;margin:0 0 6px}
+.working p{color:var(--mut);margin:0 auto;max-width:46ch}
+.bar{height:4px;border-radius:2px;background:var(--panel-2);overflow:hidden;margin:20px auto 0;max-width:320px;border:1px solid var(--line)}
+.bar i{display:block;height:100%;width:38%;background:var(--ac);border-radius:2px;animation:slide 1.3s ease-in-out infinite}
+@keyframes slide{0%{transform:translateX(-110%)}100%{transform:translateX(290%)}}
+
+/* ───────── editor ───────── */
+.ws{display:grid;grid-template-columns:320px minmax(0,1fr);height:calc(100vh - 56px);height:calc(100dvh - 56px)}
+.clips{display:flex;flex-direction:column;min-height:0;background:var(--panel);border-right:1px solid var(--line)}
+.clips-h{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.clips-h h2{margin:0;font:600 15px var(--sans);letter-spacing:-.01em}
+.clips-h .all{margin-left:auto;display:flex;align-items:center;gap:8px;color:var(--mut);font-size:13px;cursor:pointer}
+input[type=checkbox]{width:16px;height:16px;accent-color:var(--ac);margin:0;cursor:pointer}
+.list{list-style:none;margin:0;padding:8px;overflow:auto;flex:1}
+.item{
+  display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;border:1px solid transparent;cursor:pointer;
+}
+.item:hover{background:var(--panel-2)}
+.item.on{background:var(--ac-soft);border-color:var(--ac)}
+.item .meta{min-width:0;flex:1}
+.item .name{font-weight:500}
+.item .range{font-size:12px;color:var(--mut)}
+.item .dur{font-size:12px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:2px 6px}
+.clips-f{padding:12px;border-top:1px solid var(--line)}
+.clips-f .btn{width:100%}
+.noclips{padding:28px 16px;text-align:center;color:var(--mut)}
+
+.stage{overflow:auto;padding:20px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.viewer{height:var(--vh);display:grid;place-items:center;background:var(--stage);border-radius:12px;overflow:hidden}
+.frame{position:relative;width:min(100%,calc(var(--vh) * var(--ar,1.7778)));aspect-ratio:var(--ar,1.7778);overflow:hidden;background:#000}
+.frame video{position:absolute;inset:0;width:100%;height:100%;display:block}
+.guide{
+  position:absolute;top:0;bottom:0;left:50%;aspect-ratio:9/16;transform:translateX(-50%);pointer-events:none;
+  border:2px solid var(--ac);box-shadow:0 0 0 100vmax rgba(0,0,0,.58);
+}
+.guide em{
+  position:absolute;left:50%;bottom:8px;transform:translateX(-50%);font:500 11px var(--mono);font-style:normal;white-space:nowrap;
+  background:rgba(0,0,0,.65);color:#fff;border-radius:5px;padding:2px 7px;
+}
+.transport{display:flex;align-items:center;gap:12px}
+.transport .time{font-size:13px;color:var(--mut)}
+.transport .time b{color:var(--ink);font-weight:500}
+.switch{margin-left:auto;display:flex;align-items:center;gap:8px;color:var(--mut);font-size:13px;cursor:pointer;user-select:none}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.panel-h{display:flex;align-items:baseline;gap:10px;margin-bottom:10px}
+.panel-h h3{margin:0;font:600 13px var(--sans)}
+.panel-h span{color:var(--mut);font-size:12px}
+.panel-h .r{margin-left:auto}
+
+.ov{position:relative;height:26px;background:var(--panel-2);border-radius:6px;border:1px solid var(--line);margin-bottom:14px;cursor:pointer}
+.ov .s{position:absolute;top:3px;bottom:3px;min-width:4px;padding:0;border:0;border-radius:3px;background:var(--line-2);cursor:pointer}
+.ov .s:hover{background:var(--mut)}
+.ov .s.on{background:var(--ac)}
+.ov .win{position:absolute;top:-2px;bottom:-2px;border:1.5px solid var(--ink);border-radius:5px;pointer-events:none;opacity:.55}
+.ph{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;background:var(--play);pointer-events:none;border-radius:1px}
+
+.tt{position:relative;height:60px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;touch-action:none;cursor:text;
+  background-image:repeating-linear-gradient(90deg,transparent 0 calc(10% - 1px),var(--line) calc(10% - 1px) 10%)}
+.tc{position:absolute;top:-1px;bottom:-1px;background:color-mix(in srgb,var(--ac) 22%,transparent);border-top:2px solid var(--ac);border-bottom:2px solid var(--ac)}
+.hd{
+  position:absolute;top:-2px;bottom:-2px;width:14px;background:var(--ac);cursor:ew-resize;touch-action:none;
+  display:grid;place-items:center;
+}
+.hd::before{content:"";width:2px;height:20px;border-radius:1px;background:var(--ac-ink);opacity:.8;box-shadow:4px 0 0 var(--ac-ink)}
+.hd::after{content:"";position:absolute;inset:-6px -8px}
+.hd.l{left:-14px;border-radius:6px 0 0 6px;padding-right:4px}
+.hd.r{right:-14px;border-radius:0 6px 6px 0;padding-left:4px}
+.ticks{display:flex;justify-content:space-between;margin-top:6px;font-size:12px;color:var(--mut)}
+
+.insp-g{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.fld label{display:block;font-size:12px;color:var(--mut);margin-bottom:6px;font-weight:500}
+.ctl{display:flex;gap:6px}
+.ctl .btn{padding:0;width:44px}
+.ctl .input{height:30px;text-align:center;padding:0 4px;font-size:13px}
+.fld .btn.sm{width:100%;margin-top:8px}
+.insp-f{display:flex;gap:8px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line);align-items:center;flex-wrap:wrap}
+.insp-f .push{margin-left:auto}
+.keys{display:flex;flex-wrap:wrap;gap:6px 18px;color:var(--mut);font-size:12px}
+kbd{font:500 11px var(--mono);background:var(--panel);border:1px solid var(--line-2);border-bottom-width:2px;border-radius:5px;padding:1px 6px;color:var(--ink);margin-right:5px}
+.empty{padding:36px 16px;text-align:center;color:var(--mut)}
+
+/* ───────── overlays ───────── */
+.busy{position:fixed;inset:0;z-index:50;background:rgba(10,12,16,.55);display:grid;place-items:center;padding:24px;backdrop-filter:blur(2px)}
+.busy .card{max-width:420px;width:100%;text-align:center;padding:30px 28px}
+.busy h3{font:600 18px var(--sans);margin:0 0 6px}
+.busy p{margin:0;color:var(--mut)}
+.toast{
+  position:fixed;left:50%;bottom:24px;transform:translate(-50%,16px);opacity:0;pointer-events:none;z-index:60;
+  background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:500;max-width:min(92vw,520px);
+  transition:opacity .2s,transform .2s;
+}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+.toast.err{background:var(--err);color:#fff}
+
+/* ───────── responsive ───────── */
+@media(max-width:900px){
+  .ws{display:block;height:auto}
+  .stage{overflow:visible}
+  .clips{border-right:0;border-top:1px solid var(--line)}
+  .list{max-height:340px}
+  .src{display:none}
+  .how{grid-template-columns:1fr}
+  .home{padding-top:36px}
+  .home h1{font-size:30px}
+}
+@media(max-width:520px){
+  .field{flex-direction:column}
+  .insp-g{grid-template-columns:1fr}
+  #expAll .lbl{display:none}
+}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="app" id="app">
+  <header class="top">
+    <div class="brand">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2.5"/><circle cx="12" cy="10" r="2.5"/><path d="M8.5 17c.7-1.6 2-2.4 3.5-2.4s2.8.8 3.5 2.4"/></svg>
+      Vertical Clipper
+    </div>
+    <div class="src" id="srcChip" hidden><span id="srcName"></span><span class="mono" id="srcDur"></span></div>
+    <div class="grow"></div>
+    <button class="btn ghost" id="newBtn" onclick="newVideo()" hidden>New video</button>
+    <button class="btn primary" id="expAll" onclick="exportSelected()" hidden>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+      <span class="lbl" id="expLbl">Export clips</span>
+    </button>
+  </header>
+
+  <!-- HOME -->
+  <main class="home" id="home">
+    <div id="form">
+      <h1>Make vertical clips from any long video</h1>
+      <p class="sub">Add a video and we'll suggest 9:16 clips that follow the speaker's face. Adjust the cut points, then export.</p>
+
+      <div class="card">
+        <div id="herr" class="alert" role="alert" hidden></div>
+        <div class="seg-ctl" role="tablist" aria-label="Video source">
+          <button role="tab" id="tabUrl" aria-selected="true" onclick="setMode('url')">YouTube link</button>
+          <button role="tab" id="tabFile" aria-selected="false" onclick="setMode('file')">Upload a file</button>
+        </div>
+
+        <div id="paneUrl" class="field">
+          <input class="input" id="url" type="text" inputmode="url" autocomplete="off" placeholder="https://www.youtube.com/watch?v=…" aria-label="YouTube link">
+          <button class="btn primary" onclick="load()">Find clips</button>
+        </div>
+
+        <div id="paneFile" hidden>
+          <label class="drop" id="drop">
+            <input type="file" id="file" accept="video/*">
+            <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4m0 0L8 8m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg></span>
+            <span><b id="fileName">Choose a video or drop it here</b><small id="fileHint">MP4, MOV, MKV or WebM</small></span>
+          </label>
+          <div class="formrow"><button class="btn primary" onclick="load()">Find clips</button></div>
+        </div>
+      </div>
+
+      <ol class="how">
+        <li><span class="n">1</span><b>Add your video</b><span>Paste a YouTube link or upload a file.</span></li>
+        <li><span class="n">2</span><b>Review the suggested clips</b><span>Trim each clip and preview it in place.</span></li>
+        <li><span class="n">3</span><b>Export</b><span>Rendered as 9:16 with face tracking.</span></li>
+      </ol>
+    </div>
+
+    <div id="working" class="card working" hidden role="status" aria-live="polite">
+      <div class="spin"></div>
+      <h2>Preparing your video</h2>
+      <p id="wmsg">Starting…</p>
+      <div class="bar"><i></i></div>
+      <p style="margin-top:18px;font-size:13px">Long videos can take a few minutes. Keep this tab open.</p>
+    </div>
+  </main>
+
+  <!-- EDITOR -->
+  <div class="ws" id="editor" hidden>
+    <aside class="clips" aria-label="Clips">
+      <div class="clips-h">
+        <h2 id="count">Clips</h2>
+        <label class="all"><input type="checkbox" id="selAll" onchange="toggleAll(this.checked)">Select all</label>
+      </div>
+      <ul class="list" id="list"></ul>
+      <div class="clips-f">
+        <button class="btn" onclick="addClip()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          Add clip at playhead
+        </button>
+      </div>
+    </aside>
+
+    <section class="stage">
+      <div class="viewer">
+        <div class="frame" id="frame">
+          <video id="v" playsinline></video>
+          <div class="guide" id="guide"><em>9:16 frame</em></div>
+        </div>
+      </div>
+
+      <div class="transport">
+        <button class="btn icon" id="playBtn" onclick="togglePlay()" aria-label="Play or pause"></button>
+        <div class="time mono"><b id="clock">0:00.0</b> / <span id="totalClock">0:00.0</span></div>
+        <label class="switch"><input type="checkbox" id="guideChk" checked onchange="$('guide').hidden=!this.checked">Show 9:16 frame</label>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h3>Whole video</h3><span>Select a clip or click to jump</span></div>
+        <div class="ov" id="ov"></div>
+
+        <div class="panel-h"><h3>Trim</h3><span>Drag the handles to set start and end</span><span class="r mono" id="winLbl"></span></div>
+        <div class="tt" id="tt">
+          <div class="tc" id="tc"><div class="hd l" id="hl" tabindex="0" role="slider" aria-label="Clip start"></div><div class="hd r" id="hr" tabindex="0" role="slider" aria-label="Clip end"></div></div>
+          <div class="ph" id="tph"></div>
+        </div>
+        <div class="ticks mono" id="ticks"></div>
+      </div>
+
+      <div class="panel" id="insp">
+        <div id="detail">
+          <div class="panel-h"><h3 id="inspTitle">Clip</h3><span class="mono" id="inspDur"></span></div>
+          <div class="insp-g">
+            <div class="fld"><label for="inS">Start</label>
+              <div class="ctl">
+                <button class="btn sm" onclick="nudge('start',-1)" aria-label="Start minus 1 second">−1s</button>
+                <input class="input mono" id="inS" onchange="setT('start',this.value)">
+                <button class="btn sm" onclick="nudge('start',1)" aria-label="Start plus 1 second">+1s</button>
+              </div>
+              <button class="btn sm" onclick="grab('start')">Set to playhead</button>
+            </div>
+            <div class="fld"><label for="inE">End</label>
+              <div class="ctl">
+                <button class="btn sm" onclick="nudge('end',-1)" aria-label="End minus 1 second">−1s</button>
+                <input class="input mono" id="inE" onchange="setT('end',this.value)">
+                <button class="btn sm" onclick="nudge('end',1)" aria-label="End plus 1 second">+1s</button>
+              </div>
+              <button class="btn sm" onclick="grab('end')">Set to playhead</button>
+            </div>
+          </div>
+          <div class="insp-f">
+            <button class="btn" onclick="preview()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15a1 1 0 001.5.86l12-7.5a1 1 0 000-1.72l-12-7.5A1 1 0 007 4.5z"/></svg>
+              Preview clip
+            </button>
+            <button class="btn danger ghost" onclick="deleteClip()">Delete clip</button>
+            <button class="btn primary push" onclick="exportClips([clips[active]])">Export this clip</button>
+          </div>
+        </div>
+        <div class="empty" id="noDetail" hidden>No clip selected. Add a clip at the playhead to start trimming.</div>
+      </div>
+
+      <div class="keys" aria-label="Keyboard shortcuts">
+        <span><kbd>Space</kbd>Play or pause</span>
+        <span><kbd>I</kbd>Set start</span>
+        <span><kbd>O</kbd>Set end</span>
+        <span><kbd>←</kbd><kbd>→</kbd>Seek 1s</span>
+        <span>Focus a handle and use <kbd>←</kbd><kbd>→</kbd> for 0.1s steps</span>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div class="busy" id="busy" hidden role="alertdialog" aria-live="assertive" aria-labelledby="busyT">
+  <div class="card">
+    <div class="spin"></div>
+    <h3 id="busyT">Rendering clips</h3>
+    <p id="busyMsg"></p>
+    <div class="bar"><i></i></div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const $ = id => document.getElementById(id), v = $("v");
+let pid, clips = [], total = 0, active = -1, stopAt = null, winStart = 0, winEnd = 1,
+    busy = false, poller = null, mode = "url", src = "", raf = 0;
+
+const fmt = s => { s = Math.max(0, s); return Math.floor(s/60) + ":" + (s%60).toFixed(1).padStart(4, "0"); };
+const parse = t => { const p = String(t).trim().split(":").map(Number); if (!p[0] && p[0] !== 0 || p.some(isNaN)) return NaN; return p.length > 1 ? p[0]*60 + p[1] : p[0]; };
+const r1 = n => Math.round(n * 10) / 10;
+const ICON_PLAY = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15a1 1 0 001.5.86l12-7.5a1 1 0 000-1.72l-12-7.5A1 1 0 007 4.5z"/></svg>';
+const ICON_PAUSE = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4.5" height="16" rx="1"/><rect x="13.5" y="4" width="4.5" height="16" rx="1"/></svg>';
+
+/* ───────── feedback ───────── */
+let toastT;
+function toast(text, kind) {
+  const t = $("toast"); t.textContent = text; t.className = "toast on " + (kind || "");
+  clearTimeout(toastT); toastT = setTimeout(() => t.className = "toast", 3600);
+}
+function formError(text) {
+  $("herr").hidden = !text; $("herr").textContent = text || "";
+  $("working").hidden = true; $("form").hidden = false;
+}
+
+/* ───────── home ───────── */
+function setMode(m) {
+  mode = m;
+  $("tabUrl").setAttribute("aria-selected", m === "url"); $("tabFile").setAttribute("aria-selected", m === "file");
+  $("paneUrl").hidden = m !== "url"; $("paneFile").hidden = m !== "file"; formError("");
+}
+$("url").addEventListener("keydown", e => { if (e.key === "Enter") load(); });
+function fileLabel() {
+  const f = $("file").files[0];
+  $("fileName").textContent = f ? f.name : "Choose a video or drop it here";
+  $("fileHint").textContent = f ? (f.size / 1048576).toFixed(1) + " MB, click to change" : "MP4, MOV, MKV or WebM";
+}
+$("file").addEventListener("change", fileLabel);
+const drop = $("drop");
+["dragenter", "dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", e => { if (e.dataTransfer.files.length) { $("file").files = e.dataTransfer.files; fileLabel(); } });
+
+async function load() {
+  const isFile = mode === "file", f = $("file").files[0], url = $("url").value.trim();
+  if (isFile && !f) return formError("Choose a video file to upload.");
+  if (!isFile && !url) return formError("Paste a YouTube link to continue.");
+  const fd = new FormData();
+  if (isFile) fd.append("file", f); else fd.append("url", url);
+  src = isFile ? f.name : url;
+  formError(""); $("form").hidden = true; $("working").hidden = false;
+  $("wmsg").textContent = isFile ? "Uploading your video…" : "Starting…";
+  let j;
+  try { j = await (await fetch("/api/load", {method: "POST", body: fd})).json(); }
+  catch (e) { return formError("Couldn't reach the server. Check your connection and try again."); }
+  if (j.error) return formError(j.error);
+  pid = j.id;
+  clearInterval(poller);
+  poller = setInterval(async () => {
+    let s;
+    try { s = await (await fetch("/api/status/" + pid)).json(); } catch (e) { return; }
+    if (s.status === "error") { clearInterval(poller); return formError(s.message || "Something went wrong while preparing the video."); }
+    if (s.status === "ready") { clearInterval(poller); return openEditor(s); }
+    if (s.message) $("wmsg").textContent = s.message;
+  }, 1500);
+}
+
+function openEditor(s) {
+  total = s.info.duration;
+  clips = s.clips.map(([start, end]) => ({start, end, sel: true}));
+  active = clips.length ? 0 : -1;
+  if (active >= 0) setWindow(clips[0]); else { winStart = 0; winEnd = total; }
+  v.src = "/api/video/" + pid;
+  $("home").hidden = true; $("editor").hidden = false; $("newBtn").hidden = false; $("expAll").hidden = false;
+  $("srcChip").hidden = false;
+  $("srcName").textContent = src.replace(/^https?:\/\/(www\.)?/, "");
+  $("srcDur").textContent = fmt(total);
+  $("totalClock").textContent = fmt(total);
+  $("playBtn").innerHTML = ICON_PLAY;
+  renderAll(); updatePlayhead();
+}
+
+function newVideo() {
+  if (!confirm("Discard these clips and start over?")) return;
+  v.pause(); v.removeAttribute("src"); v.load();
+  clips = []; active = -1; stopAt = null; pid = null;
+  $("editor").hidden = true; $("home").hidden = false; $("newBtn").hidden = true; $("expAll").hidden = true; $("srcChip").hidden = true;
+  formError("");
+}
+
+/* ───────── model ───────── */
+function setWindow(c) {
+  const pad = Math.max(4, (c.end - c.start) * .5);
+  winStart = Math.max(0, c.start - pad); winEnd = Math.min(total, c.end + pad);
+  if (winEnd - winStart < 1) winEnd = winStart + 1;
+}
+function setRange(c, k, val) {
+  val = r1(val);
+  if (k === "start") c.start = Math.min(Math.max(0, val), c.end - 1);
+  else c.end = Math.max(Math.min(total, val), c.start + 1);
+}
+function ensureWindow(c) { if (c.start < winStart || c.end > winEnd) setWindow(c); }
+function select(i, seek = true) {
+  active = i; stopAt = null;
+  if (clips[i]) { setWindow(clips[i]); if (seek) v.currentTime = clips[i].start; }
+  renderAll(); updatePlayhead();
+}
+function nudge(k, d) { const c = clips[active]; if (!c) return; setRange(c, k, c[k] + d); ensureWindow(c); v.currentTime = c[k]; renderAll(); }
+function setT(k, t) {
+  const c = clips[active], n = parse(t); if (!c) return;
+  if (isNaN(n)) { toast("Enter a time like 1:23.5 or 83.5", "err"); return renderInspector(); }
+  setRange(c, k, n); ensureWindow(c); v.currentTime = c[k]; renderAll();
+}
+function grab(k) { const c = clips[active]; if (!c) return; setRange(c, k, v.currentTime); ensureWindow(c); renderAll(); }
+function addClip() {
+  let s = Math.min(v.currentTime || 0, Math.max(0, total - 1)), e = Math.min(total, s + 15);
+  if (e - s < 1) s = Math.max(0, e - 1);
+  const c = {start: r1(s), end: r1(e), sel: true};
+  clips.push(c); clips.sort((a, b) => a.start - b.start);
+  select(clips.indexOf(c), false); toast("Clip added at the playhead");
+}
+function deleteClip() {
+  if (active < 0) return;
+  clips.splice(active, 1); active = Math.min(active, clips.length - 1);
+  if (active >= 0) setWindow(clips[active]);
+  renderAll(); toast("Clip deleted");
+}
+function toggle(i, on) { clips[i].sel = on; renderList(); renderTop(); }
+function toggleAll(on) { clips.forEach(c => c.sel = on); renderList(); renderTop(); }
+
+/* ───────── render ───────── */
+function renderAll() { renderList(); renderTop(); renderInspector(); renderTrim(); renderOv(); updatePlayhead(); }
+function renderTop() {
+  const n = clips.filter(c => c.sel).length;
+  $("expLbl").textContent = n ? `Export ${n} clip${n === 1 ? "" : "s"}` : "Export clips";
+  $("expAll").disabled = !n;
+  const all = $("selAll"); all.checked = n > 0 && n === clips.length; all.indeterminate = n > 0 && n < clips.length;
+  all.disabled = !clips.length;
+}
+function renderList() {
+  $("count").textContent = clips.length + (clips.length === 1 ? " clip" : " clips");
+  $("list").innerHTML = clips.length ? clips.map((c, i) => `
+    <li class="item ${i === active ? "on" : ""}" tabindex="0" onclick="select(${i})" onkeydown="if(event.key==='Enter')select(${i})">
+      <input type="checkbox" ${c.sel ? "checked" : ""} onclick="event.stopPropagation()" onchange="toggle(${i},this.checked)" aria-label="Include clip ${i + 1} in export">
+      <div class="meta"><div class="name">Clip ${i + 1}</div><div class="range mono">${fmt(c.start)} – ${fmt(c.end)}</div></div>
+      <span class="dur mono">${(c.end - c.start).toFixed(1)}s</span>
+    </li>`).join("") : '<li class="noclips">No clips yet. Move the playhead and add one.</li>';
+}
+function renderInspector() {
+  const c = clips[active];
+  $("detail").hidden = !c; $("noDetail").hidden = !!c;
+  if (!c) return;
+  $("inspTitle").textContent = "Clip " + (active + 1);
+  $("inspDur").textContent = (c.end - c.start).toFixed(1) + "s long";
+  $("inS").value = fmt(c.start); $("inE").value = fmt(c.end);
+}
+function renderTrim() {
+  const c = clips[active], span = winEnd - winStart, pct = t => (t - winStart) / span * 100;
+  $("tt").style.opacity = c ? 1 : .5; $("tc").hidden = !c;
+  if (c) {
+    $("tc").style.left = pct(c.start) + "%"; $("tc").style.width = (pct(c.end) - pct(c.start)) + "%";
+    $("hl").setAttribute("aria-valuenow", c.start); $("hr").setAttribute("aria-valuenow", c.end);
+  }
+  $("winLbl").textContent = fmt(winStart) + " – " + fmt(winEnd);
+  $("ticks").innerHTML = [0, .25, .5, .75, 1].map(f => `<span>${fmt(winStart + span * f)}</span>`).join("");
+}
+function renderOv() {
+  const span = winEnd - winStart;
+  $("ov").innerHTML = clips.map((c, i) =>
+    `<button class="s ${i === active ? "on" : ""}" style="left:${c.start / total * 100}%;width:${(c.end - c.start) / total * 100}%"
+      onclick="event.stopPropagation();select(${i})" title="Clip ${i + 1}: ${fmt(c.start)} – ${fmt(c.end)}" aria-label="Select clip ${i + 1}"></button>`).join("")
+    + (active >= 0 ? `<div class="win" style="left:${winStart / total * 100}%;width:${span / total * 100}%"></div>` : "")
+    + '<div class="ph" id="oph"></div>';
+}
+function updatePlayhead() {
+  const t = v.currentTime || 0, oph = $("oph"), span = winEnd - winStart, p = (t - winStart) / span * 100;
+  if (oph && total) oph.style.left = (t / total * 100) + "%";
+  $("tph").style.display = p < 0 || p > 100 ? "none" : "block"; $("tph").style.left = p + "%";
+  $("clock").textContent = fmt(t);
+}
+
+/* ───────── playback ───────── */
+function togglePlay() { v.paused ? v.play() : v.pause(); }
+function preview() { const c = clips[active]; if (!c) return; stopAt = c.end; v.currentTime = c.start; v.play(); }
+function tick() {
+  updatePlayhead();
+  if (stopAt && v.currentTime >= stopAt) { v.pause(); stopAt = null; }
+  if (!v.paused) raf = requestAnimationFrame(tick);
+}
+v.addEventListener("play", () => { $("playBtn").innerHTML = ICON_PAUSE; cancelAnimationFrame(raf); raf = requestAnimationFrame(tick); });
+v.addEventListener("pause", () => { $("playBtn").innerHTML = ICON_PLAY; });
+v.addEventListener("seeked", updatePlayhead);
+v.addEventListener("timeupdate", updatePlayhead);
+v.addEventListener("loadedmetadata", () => {
+  if (v.videoWidth) $("frame").style.setProperty("--ar", v.videoWidth / v.videoHeight);
+  if (!total && isFinite(v.duration)) { total = v.duration; $("totalClock").textContent = fmt(total); renderAll(); }
+});
+
+/* ───────── timeline interaction ───────── */
+function drag(e, which) {
+  e.preventDefault(); e.stopPropagation(); stopAt = null;
+  const rect = $("tt").getBoundingClientRect(), c = clips[active];
+  if (which !== "scrub" && !c) return;
+  const at = ev => winStart + Math.min(1, Math.max(0, (ev.clientX - rect.left) / rect.width)) * (winEnd - winStart);
+  const move = ev => {
+    const t = at(ev);
+    if (which === "scrub") v.currentTime = t; else { setRange(c, which, t); v.currentTime = c[which]; }
+    renderList(); renderInspector(); renderTrim(); renderOv(); updatePlayhead();
+  };
+  move(e);
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", () => { window.removeEventListener("pointermove", move); renderTop(); }, {once: true});
+}
+$("tt").addEventListener("pointerdown", e => drag(e, "scrub"));
+$("hl").addEventListener("pointerdown", e => drag(e, "start"));
+$("hr").addEventListener("pointerdown", e => drag(e, "end"));
+$("ov").addEventListener("pointerdown", e => {
+  if (e.target !== $("ov")) return;
+  const r = $("ov").getBoundingClientRect(); v.currentTime = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) * total;
+});
+[["hl", "start"], ["hr", "end"]].forEach(([id, k]) => $(id).addEventListener("keydown", e => {
+  if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+  e.preventDefault(); e.stopPropagation();
+  const c = clips[active]; if (!c) return;
+  setRange(c, k, c[k] + (e.key === "ArrowRight" ? 1 : -1) * (e.shiftKey ? 1 : .1)); ensureWindow(c); v.currentTime = c[k]; renderAll();
+  $(id).focus();
+}));
+
+/* ───────── shortcuts ───────── */
+addEventListener("keydown", e => {
+  if (busy || $("editor").hidden || e.metaKey || e.ctrlKey || e.altKey) return;
+  const tag = e.target.tagName; if (tag === "INPUT" && e.target.type !== "checkbox" || tag === "TEXTAREA") return;
+  if (e.key === " " && tag !== "BUTTON" && e.target !== v) { e.preventDefault(); togglePlay(); }
+  else if (e.key.toLowerCase() === "i") grab("start");
+  else if (e.key.toLowerCase() === "o") grab("end");
+  else if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && e.target !== v) {
+    e.preventDefault(); v.currentTime = Math.min(total, Math.max(0, v.currentTime + (e.key === "ArrowRight" ? 1 : -1)));
+  }
+});
+
+/* ───────── export ───────── */
+function exportSelected() { exportClips(clips.filter(c => c.sel)); }
+async function exportClips(list) {
+  if (!list.length || busy) return;
+  busy = true;
+  $("busyMsg").textContent = `Rendering ${list.length} clip${list.length === 1 ? "" : "s"} with face tracking. This can take a few minutes.`;
+  $("busy").hidden = false; $("app").inert = true; v.pause();
+  try {
+    const body = JSON.stringify({clips: list.map(c => ({n: clips.indexOf(c) + 1, start: c.start, end: c.end, dur: total}))});
+    const r = await fetch("/api/export/" + pid, {method: "POST", headers: {"Content-Type": "application/json"}, body});
+    if (!r.ok) throw new Error("Export failed. Try again, or export fewer clips at once.");
+    const a = document.createElement("a"), cd = r.headers.get("Content-Disposition") || "";
+    a.href = URL.createObjectURL(await r.blob()); a.download = (cd.match(/filename=?"?([^";]+)/) || [])[1] || "clips.mp4"; a.click();
+    toast("Export finished. Check your Downloads folder.");
+  } catch (e) { toast(e.message || "Export failed", "err"); }
+  busy = false; $("busy").hidden = true; $("app").inert = false;
+}
+</script>
+</body>
+</html>
